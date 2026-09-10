@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RPS AI Battle — 100% Client-Side In-Browser Vision</title>
+  <meta name="description" content="Play Rock Paper Scissors against an in-browser deep learning vision AI powered by ONNX Runtime Web and WebGL. Zero backend, zero latency, 100% private.">
+  <meta name="theme-color" content="#090d16">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- ONNX Runtime Web CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+</head>
+<body>
+  <!-- Background Glow & Grid Canvas -->
+  <div class="bg-fx">
+    <div class="radial-glow top-glow"></div>
+    <div class="radial-glow bottom-glow"></div>
+    <div class="grid-mesh"></div>
+  </div>
+
+  <div class="app-container">
+    <!-- Header Navigation & Status -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-badge">
+          <span class="pulse-dot"></span>
+          <span>NEURAL VISION</span>
+        </div>
+        <h1 class="brand-title">RPS AI <span class="gradient-text">BATTLE</span></h1>
+        <span class="version-tag">v2.0 • 100% CLIENT-SIDE</span>
+      </div>
+
+      <div class="header-controls">
+        <div class="mode-switch-group" role="radiogroup" aria-label="Game Mode">
+          <button id="modeBattleBtn" class="mode-btn active" data-mode="battle" title="Classic 3-2-1 Arcade Match">
+            <span class="icon">⚔️</span>
+            <span>Arcade Match</span>
+          </button>
+          <button id="modeLiveBtn" class="mode-btn" data-mode="live" title="Continuous Real-time AI Hand Detection">
+            <span class="icon">⚡</span>
+            <span>Live Practice</span>
+          </button>
+        </div>
+
+        <div class="status-pill" id="engineStatusPill">
+          <span class="status-indicator loading" id="engineStatusDot"></span>
+          <span id="engineStatusText">Downloading AI Model...</span>
+        </div>
+
+        <button id="sfxToggleBtn" class="icon-btn" aria-label="Toggle Sound Effects" title="Toggle Sound (M)">
+          <span id="sfxIcon">🔊</span>
+        </button>
+        <button id="settingsToggleBtn" class="icon-btn" aria-label="Engine Settings" title="Engine & Backend Settings">
+          <span>⚙️</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Model Download Progress Banner (Floating Overlay) -->
+    <div id="modelLoaderOverlay" class="model-loader-card">
+      <div class="loader-header">
+        <div class="loader-icon-wrap">
+          <span class="loader-spin"></span>
+          <span class="loader-icon">🧠</span>
+        </div>
+        <div class="loader-text">
+          <div class="loader-title">Streaming Deep Learning Model (ONNX)</div>
+          <div class="loader-sub" id="modelProgressDetail">Initializing WebGL &amp; WASM Engine...</div>
+        </div>
+        <div class="loader-pct" id="modelProgressPct">0%</div>
+      </div>
+      <div class="loader-track">
+        <div class="loader-fill" id="modelProgressBar" style="width: 0%;"></div>
+      </div>
+      <div class="loader-footer">
+        <span>Model Size: 13.9 MB • Target: In-Memory WebGL GPU</span>
+        <span id="modelLoadedMb">0.0 / 13.9 MB</span>
+      </div>
+    </div>
+
+    <!-- Match Scoreboard -->
+    <section class="scoreboard-card" aria-label="Game Scoreboard">
+      <div class="score-col player-score-box">
+        <span class="score-label">PLAYER</span>
+        <span class="score-num" id="playerScore">0</span>
+        <span class="score-sub" id="playerWinPct">Win Rate: 0%</span>
+      </div>
+
+      <div class="score-divider">
+        <div class="streak-badge" id="streakBadge">
+          <span class="streak-icon">🔥</span>
+          <span id="streakCount">0 STREAK</span>
+        </div>
+        <div class="round-counter" id="roundCounter">ROUND 1</div>
+      </div>
+
+      <div class="score-col ties-score-box">
+        <span class="score-label">DRAWS</span>
+        <span class="score-num" id="tieScore">0</span>
+        <span class="score-sub">Balanced</span>
+      </div>
+
+      <div class="score-divider mini"></div>
+
+      <div class="score-col cpu-score-box">
+        <span class="score-label">NEURAL CPU</span>
+        <span class="score-num" id="cpuScore">0</span>
+        <span class="score-sub" id="cpuWinPct">Win Rate: 0%</span>
+      </div>
+    </section>
+
+    <!-- Main Dual Arena -->
+    <main class="arena-grid">
+      <!-- Player Video / Vision Chamber -->
+      <section class="arena-card player-chamber">
+        <div class="chamber-header">
+          <div class="chamber-tag player-tag">
+            <span class="badge-bullet"></span>
+            <span>PLAYER VISION FEED</span>
+          </div>
+          <div class="chamber-latency" id="inferenceFpsBadge">AI: Ready</div>
+        </div>
+
+        <div class="video-stage">
+          <video id="webcam" playsinline autoplay muted></video>
+          <canvas id="overlayCanvas"></canvas>
+
+          <!-- Interactive Hand Target ROI Box -->
+          <div class="hand-target-box" id="handTargetBox">
+            <div class="corner corner-tl"></div>
+            <div class="corner corner-tr"></div>
+            <div class="corner corner-bl"></div>
+            <div class="corner corner-br"></div>
+            <div class="target-crosshair"></div>
+            <div class="target-label" id="targetBoxLabel">PLACE HAND HERE</div>
+          </div>
+
+          <!-- Giant Countdown & Hold Overlay -->
+          <div class="hud-countdown-overlay" id="countdownOverlay">
+            <div class="countdown-digit" id="countdownText">3</div>
+            <div class="countdown-sub" id="countdownSub">GET READY!</div>
+          </div>
+
+          <!-- "What AI Sees" Debug PIP Window (Matches Python cv2.imshow) -->
+          <div class="debug-pip-card" id="debugPipCard" title="Exact 150x150 crop fed into rps_model.onnx">
+            <div class="debug-pip-header">
+              <span>WHAT AI SEES</span>
+              <span class="debug-pip-res">150×150 RGB</span>
+            </div>
+            <canvas id="aiSeeCanvas" width="150" height="150"></canvas>
+          </div>
+
+          <!-- Video Fallback / Permission Placeholder -->
+          <div class="camera-fallback" id="cameraFallback">
+            <div class="fallback-icon">📷</div>
+            <h3>Camera Inactive</h3>
+            <p>Allow webcam access to play against the Neural AI</p>
+            <button id="enableCamBtn" class="action-btn primary-btn">
+              <span class="btn-icon">⚡</span>
+              <span>Enable Camera</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Player Live Gesture Footer -->
+        <div class="chamber-footer">
+          <div class="detected-gesture-pill" id="playerMovePill">
+            <span class="gesture-icon" id="playerMoveIcon">✋</span>
+            <div class="gesture-text">
+              <span class="gesture-title" id="playerMoveText">Paper</span>
+              <span class="gesture-conf" id="playerMoveConf">Waiting for start...</span>
+            </div>
+          </div>
+
+          <div class="vision-tools">
+            <button id="flipCamBtn" class="tool-btn" title="Toggle Mirror View">
+              <span>🪞 Flip</span>
+            </button>
+            <button id="togglePipBtn" class="tool-btn active" title="Toggle AI Vision Debug View">
+              <span>👁️ AI View</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Center Versus & Result Stage -->
+      <div class="versus-stage">
+        <div class="vs-emblem" id="vsEmblem">
+          <span class="vs-text">VS</span>
+        </div>
+
+        <!-- Outcome Banner -->
+        <div class="round-outcome-banner" id="outcomeBanner">
+          <div class="outcome-icon" id="outcomeIcon">🏆</div>
+          <div class="outcome-title" id="outcomeTitle">PRESS START</div>
+          <div class="outcome-sub" id="outcomeSub">Spacebar or click button below</div>
+        </div>
+      </div>
+
+      <!-- CPU Opponent Chamber -->
+      <section class="arena-card cpu-chamber">
+        <div class="chamber-header">
+          <div class="chamber-tag cpu-tag">
+            <span class="badge-bullet cpu-bullet"></span>
+            <span>NEURAL CPU BOT</span>
+          </div>
+          <div class="chamber-state" id="cpuStateText">STANDBY</div>
+        </div>
+
+        <div class="cpu-stage">
+          <!-- Cyber CPU Avatar -->
+          <div class="cpu-avatar-halo" id="cpuAvatarHalo">
+            <div class="cpu-bot-icon">🤖</div>
+          </div>
+
+          <!-- CPU Holographic Move Card -->
+          <div class="cpu-hand-card" id="cpuHandCard">
+            <div class="card-glass-glow"></div>
+            <div class="cpu-move-emoji" id="cpuMoveIcon">❓</div>
+            <div class="cpu-move-name" id="cpuMoveName">READY</div>
+            <div class="cpu-move-sub" id="cpuMoveSub">Waiting for round...</div>
+          </div>
+        </div>
+
+        <!-- CPU Status Footer -->
+        <div class="chamber-footer cpu-footer">
+          <div class="cpu-mind-indicator">
+            <span class="mind-pulse"></span>
+            <span id="cpuMindText">Neural logic ready</span>
+          </div>
+          <div class="cpu-difficulty-badge">HARD MODE</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Telemetry & Action Bar -->
+    <section class="telemetry-bar-grid">
+      <!-- Real-time Class Probabilities -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-title">AI CONFIDENCE TELEMETRY</span>
+          <span class="telemetry-tag" id="telemetryLatencyTag">150×150 Tensor</span>
+        </div>
+
+        <div class="prob-rows">
+          <!-- Rock -->
+          <div class="prob-row" id="probRowRock">
+            <div class="prob-info">
+              <span class="prob-name">✊ ROCK</span>
+              <span class="prob-val" id="probValRock">0%</span>
+            </div>
+            <div class="prob-track">
+              <div class="prob-fill rock-fill" id="probFillRock" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Paper -->
+          <div class="prob-row" id="probRowPaper">
+            <div class="prob-info">
+              <span class="prob-name">✋ PAPER</span>
+              <span class="prob-val" id="probValPaper">0%</span>
+            </div>
+            <div class="prob-track">
+              <div class="prob-fill paper-fill" id="probFillPaper" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Scissors -->
+          <div class="prob-row" id="probRowScissors">
+            <div class="prob-info">
+              <span class="prob-name">✌️ SCISSORS</span>
+              <span class="prob-val" id="probValScissors">0%</span>
+            </div>
+            <div class="prob-track">
+              <div class="prob-fill scissors-fill" id="probFillScissors" style="width: 0%;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Action Controls -->
+      <div class="action-card">
+        <div class="action-btn-group">
+          <button id="startRoundBtn" class="action-btn battle-launch-btn">
+            <span class="btn-glow"></span>
+            <span class="btn-icon">⚡</span>
+            <span class="btn-text" id="startBtnText">START ROUND</span>
+            <span class="btn-hint">[SPACE / S]</span>
+          </button>
+
+          <div class="sub-actions">
+            <button id="resetScoreBtn" class="sub-btn" title="Reset Scoreboard">
+              <span>🔄 Reset Score</span>
+            </button>
+            <button id="toggleCameraBtn" class="sub-btn" title="Stop / Restart Camera">
+              <span id="camToggleText">📷 Camera On</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="keyboard-hints">
+          <span class="key-tag"><kbd>SPACE</kbd> Play</span>
+          <span class="key-tag"><kbd>R</kbd> Restart</span>
+          <span class="key-tag"><kbd>M</kbd> Mute</span>
+          <span class="key-tag"><kbd>L</kbd> Live Mode</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Match History Logs -->
+    <section class="history-section" id="historySection">
+      <div class="history-header">
+        <span class="history-title">MATCH LOGS</span>
+        <button id="clearHistoryBtn" class="clear-btn">Clear</button>
+      </div>
+      <div class="history-chips" id="historyChips">
+        <div class="history-empty">No rounds played yet. Hit Start Round to begin!</div>
+      </div>
+    </section>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="modal-title">⚙️ Engine &amp; Backend Settings</div>
+          <button id="closeSettingsBtn" class="close-modal-btn" aria-label="Close Settings">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label class="setting-label">Inference Engine</label>
+            <div class="setting-options">
+              <label class="radio-card active" id="radioCardClient">
+                <input type="radio" name="inferenceMode" value="client" checked>
+                <div class="radio-content">
+                  <div class="radio-title">⚡ In-Browser ONNX (WebGL GPU / WASM)</div>
+                  <div class="radio-sub">Recommended: 100% Free, ~15ms latency, zero server setup needed.</div>
+                </div>
+              </label>
+              <label class="radio-card" id="radioCardBackend">
+                <input type="radio" name="inferenceMode" value="backend">
+                <div class="radio-content">
+                  <div class="radio-title">🐍 Remote FastAPI Python Backend</div>
+                  <div class="radio-sub">Sends image to Python backend (Docker, Cloud Run, Render, or Localhost).</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-group hidden" id="backendUrlGroup">
+            <label class="setting-label" for="backendUrlInput">FastAPI Backend URL</label>
+            <div class="url-input-row">
+              <input type="url" id="backendUrlInput" placeholder="http://localhost:8080" value="http://localhost:8080">
+              <button id="testBackendBtn" class="sub-btn" type="button">Test</button>
+            </div>
+            <div class="backend-test-status" id="backendTestStatus"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="saveSettingsBtn" class="action-btn battle-launch-btn" style="width: 100%; padding: 0.65rem 1rem; font-size: 0.95rem;">Save &amp; Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>
+        Running <strong>rps_model.onnx</strong> locally via <strong>ONNX Runtime Web</strong> (WebGL &amp; WASM).
+        Zero server fees • Zero latency • Zero camera data uploaded.
+      </div>
+      <div>
+        <a href="https://vercel.com" target="_blank" rel="noopener">Ready for 1-Click Free Vercel Deployment</a>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Main Game & Vision Controller -->
+  <script src="app.js"></script>
+</body>
+</html>

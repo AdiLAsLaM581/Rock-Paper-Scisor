@@ -1,0 +1,4 @@
+opencv-python
+numpy
+onnxruntime
+#tensorflow if .h5 model use krna

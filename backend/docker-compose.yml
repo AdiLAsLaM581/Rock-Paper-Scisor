@@ -1,0 +1,12 @@
+version: "3.8"
+
+services:
+  rps-backend:
+    build: .
+    container_name: rps-ai-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - CORS_ORIGINS=*
+    restart: unless-stopped
