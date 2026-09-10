@@ -1,8 +1,8 @@
-# Ignore Python serverless detection on Vercel
-desktop_main.py
-requirements.txt
-backend
+# Ignore all non-web folders from Vercel deployment
+desktop/
+desktop/**
+backend/
 backend/**
-rps_model.h5
-*.py
 *.h5
+*.py
+*.txt
