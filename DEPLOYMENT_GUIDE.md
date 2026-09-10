@@ -1,95 +1,93 @@
-# Deployment Guide: Rock Paper Scissors Client-Side AI Web App
+# Rock Paper Scissors AI: Complete Deployment Guide
 
-This project has been migrated to a **100% Client-Side Web Application** powered by **ONNX Runtime Web**. The deep learning model (`rps_model.onnx`, 13.9 MB) runs directly inside the user's browser using **WebGL (GPU)** or **WebAssembly (CPU)**.
-
----
-
-## Key Advantages
-- **Zero Backend Required:** No Google Cloud Run, no Docker, no Render, no credit card required.
-- **100% Free Hosting:** Can be hosted permanently on **Vercel**, **Netlify**, or **GitHub Pages** for $0.
-- **Complete Privacy:** Camera video frames are processed entirely in browser memory; no video or image data is ever sent to any server.
-- **Ultra-Low Latency:** In-browser inference runs in ~10–25ms per frame.
+This project features a **Hybrid Architecture** matching both deployment models:
+1. **100% Client-Side Web App (Default & Recommended):** Runs `rps_model.onnx` directly inside the user's browser using **ONNX Runtime Web (WebGL GPU / WASM)**. Deployable to **Vercel** for free with $0 hosting fees, 0 backend dependencies, and ~15ms latency.
+2. **FastAPI Python Backend (Optional):** A containerized Docker server running FastAPI and ONNX Runtime with `/predict` endpoints, deployable to **Render**, **Hugging Face Spaces**, or **Google Cloud Run**.
 
 ---
 
-## 1. Local Testing
+## Part 1: Deploying Frontend to Vercel (100% Free & Recommended)
 
-To test the application locally on your computer:
+### Method A: Via GitHub (Recommended)
 
-1. Open your terminal (PowerShell or Command Prompt) in the project directory.
-2. Start Python's built-in HTTP server:
+1. **Create a new repository on GitHub:**
+   - Go to [github.com/new](https://github.com/new) and name it `Rock_Paper_Scissor`.
+2. **Push your committed code:**
    ```bash
-   python -m http.server 3000 --directory frontend
+   git branch -M main
+   git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/Rock_Paper_Scissor.git
+   git push -u origin main
    ```
-3. Open your browser and navigate to:
-   **[http://localhost:3000](http://localhost:3000)**
-4. Allow camera permissions when prompted.
-5. Watch the **"Streaming Deep Learning Model"** progress bar download and initialize the WebGL GPU engine.
-6. Press **Spacebar** or click **START ROUND** to play against the AI!
-
----
-
-## 2. Deploy to Vercel (100% Free)
-
-### Option A: Via GitHub (Recommended)
-
-1. **Commit and Push your project to GitHub:**
-   ```bash
-   git add .
-   git commit -m "Deploy client-side Rock Paper Scissors AI to Vercel"
-   git push
-   ```
-
-2. **Connect to Vercel:**
+3. **Deploy on Vercel:**
    - Go to [vercel.com](https://vercel.com) and log in with GitHub.
-   - Click **Add New... > Project**.
-   - Select your `Rock_Paper_Scissor` repository.
-
-3. **Configure the Project:**
-   - In the **Project Configuration** screen:
+   - Click **Add New... > Project** and import `Rock_Paper_Scissor`.
+   - In **Project Configuration**:
      - Set **Root Directory** to: `frontend`
-     - Framework Preset: `Other` (Static HTML/JS)
+     - Framework Preset: `Other`
    - Click **Deploy**.
-
-4. **Done!**
-   - Vercel will deploy your application to an HTTPS URL (e.g., `https://rock-paper-scissors-ai.vercel.app`) in ~30 seconds.
-   - Because Vercel provides free HTTPS, your browser webcam permissions will work seamlessly on all desktop and mobile devices.
+4. **Your web app is now live!** Vercel provides automatic HTTPS, enabling webcam access across all phones, tablets, and laptops.
 
 ---
 
-### Option B: Via Vercel CLI (Direct Terminal Deploy)
+### Method B: Via Vercel CLI (Direct Terminal Deploy)
 
-If you don't want to use GitHub:
-
-1. In your terminal, navigate to the `frontend` folder:
-   ```bash
-   cd "c:\Users\HP\Desktop\AI Project\Rock_Paper_Scissor\frontend"
-   ```
-
-2. Run Vercel CLI:
-   ```bash
-   npx vercel --prod
-   ```
-
-3. Follow the quick terminal prompts (press Enter for defaults). Vercel will upload the static files and output your live production URL.
+```bash
+cd frontend
+npx vercel --prod
+```
+Follow the interactive prompts to link and deploy your static build.
 
 ---
 
-## 3. Keyboard Shortcuts & Controls
+## Part 2: Deploying FastAPI Backend (Optional)
+
+The `backend/` directory contains a containerized Python service.
+
+### Option 1: Free Hosting on Render.com (Docker)
+1. Push your repository to GitHub.
+2. Go to [render.com](https://render.com) and log in.
+3. Click **New + > Web Service** and select `Rock_Paper_Scissor`.
+4. In Settings:
+   - **Root Directory:** `backend`
+   - **Environment:** `Docker`
+   - **Instance Type:** `Free`
+5. Click **Create Web Service**.
+6. Once deployed, copy your Render URL (e.g., `https://rps-backend.onrender.com`).
+7. Open your frontend web app, click **⚙️ Settings**, switch to **FastAPI Python Backend**, paste your Render URL, and click **Save & Apply**!
+
+---
+
+### Option 2: Run Backend Locally with Docker Compose
+```bash
+cd backend
+docker compose up --build
+```
+The API will be available at `http://localhost:8080`.
+
+---
+
+### Option 3: Run Backend Directly with Python
+```bash
+cd backend
+pip install -r requirements.txt
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+---
+
+## Part 3: Switching Inference Engines in the Web App
+
+Click the **⚙️ (Gear)** button in the top right header to toggle between:
+* **⚡ In-Browser ONNX (WebGL GPU / WASM):** Runs inside the browser with zero server latency and total privacy.
+* **🐍 Remote FastAPI Python Backend:** Routes webcam crops to your FastAPI server (`POST /predict`).
+
+---
+
+## Part 4: Controls & Shortcuts
 
 | Key | Action |
 |---|---|
-| <kbd>Space</kbd> or <kbd>S</kbd> | Start Round (3-2-1 Countdown & Capture) |
-| <kbd>R</kbd> | Play Again / Restart Round |
-| <kbd>L</kbd> | Toggle Practice Mode (Continuous Live AI Recognition) |
-| <kbd>M</kbd> | Toggle Synthesized Sound Effects (Mute / Unmute) |
-
----
-
-## 4. Technical Architecture
-
-- **Engine:** `onnxruntime-web` (v1.20.1) via CDN.
-- **Hardware Acceleration:** WebGL GPU execution provider with automatic WASM fallback.
-- **Model:** `rps_model.onnx` (13.9 MB, 150x150 RGB input tensor, 3 classes: Paper, Rock, Scissors).
-- **Audio:** Web Audio API synth oscillators (zero external audio asset files needed).
-- **Caching:** `vercel.json` serves `rps_model.onnx` with `max-age=31536000, immutable` headers so users only download the model once and cache it locally in their browser.
+| <kbd>Space</kbd> or <kbd>S</kbd> | Start Round (3-2-1 Countdown & Hand Capture) |
+| <kbd>R</kbd> | Play Next Round / Quick Restart |
+| <kbd>L</kbd> | Toggle Practice Mode (Continuous Live Gesture Recognition) |
+| <kbd>M</kbd> | Toggle Sound Effects (Mute / Unmute) |
