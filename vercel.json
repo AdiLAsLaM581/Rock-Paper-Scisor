@@ -1,5 +1,6 @@
 {
   "version": 2,
+  "cleanUrls": true,
   "headers": [
     {
       "source": "/(.*)\\.onnx",
@@ -22,16 +23,6 @@
           "value": "camera=*"
         }
       ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/",
-      "destination": "/frontend/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/$1"
     }
   ]
 }
